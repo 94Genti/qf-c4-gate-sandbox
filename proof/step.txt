@@ -1,0 +1,2 @@
+C4 gate proof - step 1 (no receipt yet)
+C4 gate proof - step 2 (commit pushed AFTER the valid receipt)
