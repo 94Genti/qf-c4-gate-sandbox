@@ -1,0 +1,52 @@
+name: Sandbox helper - post receipt as bot
+
+# SANDBOX-ONLY. Kein Teil des C4-Gates. Postet ein Receipt als github-actions[bot],
+# um Szenario 5 (receipt_issuer_not_allowed) mit einem echten Bot-Account zu belegen.
+
+on:
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: Pull request number
+        required: true
+      head_sha:
+        description: Head SHA to claim in the receipt
+        required: true
+      auditor:
+        description: Auditor label
+        required: true
+        default: CLAUDE
+
+permissions:
+  issues: write
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Post receipt comment as github-actions[bot]
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ inputs.pr_number }}
+          HEAD_SHA: ${{ inputs.head_sha }}
+          AUDITOR: ${{ inputs.auditor }}
+          REPO: ${{ github.repository }}
+        run: |
+          python - <<'PY' > body.md
+          import json, os
+          from datetime import datetime, timezone
+          payload = {
+              "schema": "qf.audit_receipt.v1",
+              "verdict": "PASS",
+              "pr": int(os.environ["PR_NUMBER"]),
+              "head_sha": os.environ["HEAD_SHA"],
+              "auditor": os.environ["AUDITOR"],
+              "audit_completed_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+          }
+          print("Sandbox scenario 5: receipt issued by a bot account.")
+          print()
+          print("<!-- QF-AUDIT-RECEIPT:START -->")
+          print(json.dumps(payload, indent=2))
+          print("<!-- QF-AUDIT-RECEIPT:END -->")
+          PY
+          gh api "repos/${REPO}/issues/${PR_NUMBER}/comments" -f body="$(cat body.md)" --jq '{id,url:.html_url,login:.user.login}'

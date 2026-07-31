@@ -1,0 +1,43 @@
+name: Audit Receipt Gate
+
+on:
+  pull_request_target:
+    types: [opened, reopened, synchronize, ready_for_review, edited]
+  issue_comment:
+    types: [created, edited, deleted]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: Pull request number to re-check
+        required: true
+
+permissions:
+  contents: read
+  issues: read
+  pull-requests: read
+  statuses: write
+
+jobs:
+  audit-receipt-gate-runner:
+    name: Audit receipt gate runner
+    runs-on: ubuntu-latest
+    if: >-
+      github.event_name == 'pull_request_target' ||
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'issue_comment' && github.event.issue.pull_request)
+
+    env:
+      AUDIT_RECEIPT_CONTEXT: audit-receipt/head-sha
+      AUDIT_RECEIPT_ALLOWED_ISSUERS: 94Genti
+      AUDIT_RECEIPT_ALLOWED_AUDITORS: CLAUDE,GLM-REVIEW,OPERATOR
+      AUDIT_RECEIPT_MAX_AGE_HOURS: "168"
+
+    steps:
+      - name: Check out trusted default-branch verifier
+        uses: actions/checkout@v4
+
+      - name: Verify audit receipt and set head status
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          python scripts/verify_audit_receipt_gate.py --set-status
